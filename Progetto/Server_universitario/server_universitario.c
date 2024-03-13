@@ -81,7 +81,10 @@ int main(int argc, char *argv[]) {
                 //aggiungi esame
                 char *exam = strtok(NULL, ",");
                 char *date = strtok(NULL, ",");
-        
+                if (exam == NULL || date == NULL) {
+                    printf("Usage: %d <exam_name> <exam_date>\n", operation);
+                    return 1;
+                }
                 int result = add_exam(exam, date);
                 if(result < 0) {
                     //error adding exam
