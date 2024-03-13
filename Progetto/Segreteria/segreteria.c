@@ -11,7 +11,7 @@
 #define SECRETARY_PORT 9003
 #define SERVER_PORT 9002
 
-void add_exam_request(int server_socket, const char *exam, const char *date) {
+void add_exam_request(int server_socket, char *exam, char *date) {
     exam[strcspn(exam, "\n")] = '\0';
     date[strcspn(date, "\n")] = '\0';
     char request[256];
@@ -19,27 +19,23 @@ void add_exam_request(int server_socket, const char *exam, const char *date) {
     send(server_socket, request, strlen(request), 0);
 }
 
-void book_exam_request(int server_socket, const char *exam, const char *student_id, const char *date) {
+void book_exam_request(int server_socket, char *exam, char *student_id, char *date) {
+    exam[strcspn(exam, "\n")] = '\0';
+    date[strcspn(date, "\n")] = '\0';
+    student_id[strcspn(student_id, "\n")] = '\0';
     char request[256];
     sprintf(request, "1,%s,%s,%s", exam, student_id, date);
     send(server_socket, request, strlen(request), 0);
 }
 
-void get_exam_dates_request(int server_socket, const char *exam) {
+void get_exam_dates_request(int server_socket, char *exam) {
+    exam[strcspn(exam, "\n")] = '\0';
     char request[256];
     sprintf(request, "2,%s", exam);
     send(server_socket, request, strlen(request), 0);
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s <operation> [arguments]\n", argv[0]);
-        printf("Operations:\n");
-        printf("0: Add exam\n");
-        printf("1: Book exam\n");
-        printf("2: Get exam dates\n");
-        return 1;
-    }
 
     // Create socket for server connection
     int server_socket;
@@ -151,6 +147,7 @@ int main(int argc, char *argv[]) {
             char response[256];
             recv(server_socket, response, sizeof(response), 0);
             printf("Response from server: %s\n", response);
+            send(student_socket, response, strlen(response), 0);
 
             // Close student socket
             close(student_socket);
