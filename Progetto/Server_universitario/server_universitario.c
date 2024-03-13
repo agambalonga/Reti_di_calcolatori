@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -8,11 +9,12 @@
 
 
 void build_server_address(struct sockaddr_in *, int);
-int add_exam(char, char);
+int add_exam(char*, char*);
 
 /*
     1)Riceve l'aggiunta di nuovi esami
     2)Riceve la prenotazione di un esame
+    3)Visualizza esami
 */
 int main(int argc, char *argv[]) {
 
@@ -31,7 +33,10 @@ int main(int argc, char *argv[]) {
     build_server_address(&server_address, 9002);
 
     //bind server address to server socket
-    bind(server_socket, (struct sockaddr *) &server_address, sizeof(server_address));
+    if(bind(server_socket, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+        perror("Error binding server address to server socket");
+        exit(-2);
+    }
 
     //listen for connections
     //first parameter is the socket, second is the maximum number of pending connections
@@ -39,6 +44,8 @@ int main(int argc, char *argv[]) {
         perror("Error listening for connections");
         exit(-2);
     }
+
+    printf("Server listening on port 9002\n");
 
     while(1) {
         /* accept new client connection. 
@@ -63,24 +70,24 @@ int main(int argc, char *argv[]) {
 
             /*
              * Example of requests:
-             * 0, Reti di calcolatori, 2024/03/01 --> add new exam
-             * 1, Reti di calcolatori, 0124002583, 2024/03/01 --> book exam
-             * 2, Reti di calcolatori --> get dates by exam
+             * 0,Reti di calcolatori,2024/03/01 --> add new exam
+             * 1,Reti di calcolatori,0124002583, 2024/03/01 --> book exam
+             * 2,Reti di calcolatori --> get dates by exam
             */
             char *token = strtok(buffer, ",");
             int operation = atoi(token);
 
             if(operation == 0) {
                 //aggiungi esame
-                char exam = strtok(NULL, ",");
-                char date = strtok(NULL, ",");
+                char *exam = strtok(NULL, ",");
+                char *date = strtok(NULL, ",");
         
                 int result = add_exam(exam, date);
                 if(result < 0) {
                     //error adding exam
-                    send(client_socket, "Error adding exam", sizeof("Error adding exam"), 0);
+                    send(client_socket, "Error adding exam\n", sizeof("Error adding exam\n"), 0);
                 } else {
-                    send(client_socket, "Exam added", sizeof("Exam added"), 0);
+                    send(client_socket, "Exam added\n", sizeof("Exam added\n"), 0);
                 }
             } else if (operation == 1) {
                 //prenota esame
@@ -88,9 +95,10 @@ int main(int argc, char *argv[]) {
                 //get dates by exam
             } else {
                 //invalid operation
-                send(client_socket, "Invalid operation", sizeof("Invalid operation"), 0);
+                send(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"), 0);
             }
             
+            exit(0);
         } else {
             //parent process
             close(client_socket);
@@ -111,12 +119,15 @@ void build_server_address(struct sockaddr_in *server_address, int port) {
 
 /*
     Add exam into a file only if not already present for that date
-    Return 0 if exam added, -1 if exam already present
+    Return 0 if exam added, -2 if exam already present
 */
-int add_exam(char exam, char date) {
+int add_exam(char *exam, char *date) {
 
-    //open file in read and append mode
-    FILE *file = fopen("exams.txt", "a+");
+    exam[strcspn(exam, "\n")] = '\0';
+    date[strcspn(date, "\n")] = '\0';
+
+    //open file in read mode
+    FILE *file = fopen("exams.txt", "r");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -125,12 +136,22 @@ int add_exam(char exam, char date) {
     //check if exam is already present
     char line[256];
     while(fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\n")] = '\0'; //remove newline character
         // check if exam is already present. A line is in the format: exam,date
         char *token = strtok(line, ",");
         if(strcmp(token, exam) == 0 && strcmp(strtok(NULL, ","), date) == 0) {
-            //exam already present
+            fclose(file);
             return -2;
         }
+    }
+
+    fclose(file);
+
+    //open file in append mode
+    file = fopen("exams.txt", "a");
+    if(file == NULL) {
+        perror("Error opening file");
+        return -1;
     }
 
     //add exam
