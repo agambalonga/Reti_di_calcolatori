@@ -10,37 +10,38 @@
 
 #define SECRETARY_PORT 9003
 #define SERVER_PORT 9002
+#define ADD_EXAM_PORT 9004
 
-void add_exam_request(int server_socket, char *exam, char *date) {
+void add_exam_request(int server_socket_uni, char *exam, char *date) {
     exam[strcspn(exam, "\n")] = '\0';
     date[strcspn(date, "\n")] = '\0';
     char request[256];
     sprintf(request, "0,%s,%s", exam, date);
-    send(server_socket, request, strlen(request), 0);
+    send(server_socket_uni, request, strlen(request), 0);
 }
 
-void book_exam_request(int server_socket, char *exam, char *student_id, char *date) {
+void book_exam_request(int server_socket_uni, char *exam, char *student_id, char *date) {
     exam[strcspn(exam, "\n")] = '\0';
     date[strcspn(date, "\n")] = '\0';
     student_id[strcspn(student_id, "\n")] = '\0';
     char request[256];
     sprintf(request, "1,%s,%s,%s", exam, student_id, date);
-    send(server_socket, request, strlen(request), 0);
+    send(server_socket_uni, request, strlen(request), 0);
 }
 
-void get_exam_dates_request(int server_socket, char *exam) {
+void get_exam_dates_request(int server_socket_uni, char *exam) {
     exam[strcspn(exam, "\n")] = '\0';
     char request[256];
     sprintf(request, "2,%s", exam);
-    send(server_socket, request, strlen(request), 0);
+    send(server_socket_uni, request, strlen(request), 0);
 }
 
 int main(int argc, char *argv[]) {
 
     // Create socket for server connection
-    int server_socket;
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket < 0) {
+    int server_socket_uni;
+    server_socket_uni = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket_uni < 0) {
         perror("Error creating server socket");
         exit(EXIT_FAILURE);
     }
@@ -51,11 +52,6 @@ int main(int argc, char *argv[]) {
     server_address.sin_port = htons(SERVER_PORT);
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    // Connect to server
-    if (connect(server_socket, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
-        perror("Error connecting to server");
-        exit(EXIT_FAILURE);
-    }
 
     // Create socket for secretary
     int secretary_socket;
@@ -86,81 +82,79 @@ int main(int argc, char *argv[]) {
     printf("Secretary listening on port %d\n", SECRETARY_PORT);
 
     while (1) {
+        char response[256];
         // Accept connection from student
-        int student_socket;
-        student_socket = accept(secretary_socket, NULL, NULL);
-        if (student_socket < 0) {
+        int client_socket;
+        client_socket = accept(secretary_socket, NULL, NULL);
+        if (client_socket < 0) {
             perror("Error accepting student connection");
-            continue;
+            //continue;
         }
-
+        
         pid_t pid = fork();
         if (pid < 0) {
-            perror("Error creating child process");
+            perror("Error creating secretary process");
         } else if (pid == 0) {
-            // Child process - handle student request
-            close(secretary_socket);
+                
+                // Child process - handle student request
+                close(secretary_socket);
 
-            //receive client message
-            char buffer[256];
-            recv(student_socket, buffer, sizeof(buffer), 0);
-            /*
-             * Example of requests:
-             * 0,Reti di calcolatori,2024/03/01 --> add new exam
-             * 1,Reti di calcolatori,0124002583, 2024/03/01 --> book exam
-             * 2,Reti di calcolatori --> get dates by exam
-            */
-            char *token = strtok(buffer, ",");
-            int operation = atoi(token);
-
-            if (operation == 0) {
-                char *exam = strtok(NULL, ",");
-                char *date = strtok(NULL, ",");
-                if (exam == NULL || date == NULL) {
-                    printf("Usage: %d <exam_name> <exam_date>\n", operation);
-                    return 1;
+                // Connect to server
+                if (connect(server_socket_uni, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+                    perror("Error connecting to server");
+                    exit(EXIT_FAILURE);
                 }
-                add_exam_request(server_socket, exam, date);
-            }
-            else if (operation == 1) {
-                char *exam = strtok(NULL, ",");
-                char *student_id = strtok(NULL, ",");
-                char *date = strtok(NULL, ",");
-                if (exam == NULL || date == NULL || student_id == NULL) {
-                    printf("Usage: %d <exam_name> <exam_date>\n", operation);
-                    return 1;
+                //receive client message
+                char buffer[256];
+                recv(client_socket, buffer, sizeof(buffer), 0);
+                /*
+                * Example of requests:
+                * 0,Reti di calcolatori,2024/03/01 --> add new exam
+                * 1,Reti di calcolatori,0124002583, 2024/03/01 --> book exam
+                * 2,Reti di calcolatori --> get dates by exam
+                */
+                char *token = strtok(buffer, ",");
+                int operation = atoi(token);
+                printf("Operation: %d \n", operation);
+                if (operation == 0) {
+                    printf("sto in operazione 0\n");
+                    char *exam = strtok(NULL, ",");
+                    char *date = strtok(NULL, ",");
+                    if (exam == NULL || date == NULL) {
+                        printf("Usage: %d <exam_name> <exam_date>\n", operation);
+                        return 1;
+                    }
+                    add_exam_request(server_socket_uni, exam, date);
                 }
-                book_exam_request(server_socket, exam, student_id, date);
-            }
-            else if (operation == 2) {
-                char *exam = strtok(NULL, ",");
-                if (exam == NULL) {
-                    printf("Usage: %d <exam_name>\n", operation);
-                    return 1;
+                else if (operation == 1) {
+                    char *exam = strtok(NULL, ",");
+                    char *student_id = strtok(NULL, ",");
+                    char *date = strtok(NULL, ",");
+                    if (exam == NULL || date == NULL || student_id == NULL) {
+                        printf("Usage: %d <exam_name> <exam_date>\n", operation);
+                        return 1;
+                    }
+                    book_exam_request(server_socket_uni, exam, student_id, date);
+                } 
+                else if (operation == 2) {
+                    char *exam = strtok(NULL, ",");
+                    if (exam == NULL) {
+                        printf("Usage: %d <exam_name>\n", operation);
+                        return 1;
+                    }
+                    get_exam_dates_request(server_socket_uni, exam);
+                } else {
+                    printf("Invalid operation\n");
                 }
-                get_exam_dates_request(server_socket, exam);
-            } else {
-                printf("Invalid operation\n");
-            }
-
-            // Receive response from server
-            char response[256];
-            recv(server_socket, response, sizeof(response), 0);
-            printf("Response from server: %s\n", response);
-            send(student_socket, response, strlen(response), 0);
-
-            // Close student socket
-            close(student_socket);
-            exit(0);
+                recv(server_socket_uni, response, sizeof(response), 0);
+                printf("Response from server: %s\n", response);
+                send(client_socket, response, strlen(response), 0);
+                exit(0);
+             
         } else {
-            // Parent process - continue listening for other student connections
-            close(student_socket);
+            // Close student socket
+            close(client_socket);
         }
     }
-
-    // Close sockets
-    close(secretary_socket);
-    close(server_socket);
-
     return 0;
 }
