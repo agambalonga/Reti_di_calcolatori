@@ -17,7 +17,7 @@ void add_exam_request(int server_socket_uni, char *exam, char *date) {
     date[strcspn(date, "\n")] = '\0';
     char request[256];
     sprintf(request, "0,%s,%s", exam, date);
-    send(server_socket_uni, request, strlen(request), 0);
+    write(server_socket_uni, request, strlen(request));
 }
 
 void book_exam_request(int server_socket_uni, char *exam, char *student_id, char *date) {
@@ -26,14 +26,14 @@ void book_exam_request(int server_socket_uni, char *exam, char *student_id, char
     student_id[strcspn(student_id, "\n")] = '\0';
     char request[256];
     sprintf(request, "1,%s,%s,%s", exam, student_id, date);
-    send(server_socket_uni, request, strlen(request), 0);
+    write(server_socket_uni, request, strlen(request));
 }
 
 void get_exam_dates_request(int server_socket_uni, char *exam) {
     exam[strcspn(exam, "\n")] = '\0';
     char request[256];
     sprintf(request, "2,%s", exam);
-    send(server_socket_uni, request, strlen(request), 0);
+    write(server_socket_uni, request, strlen(request));
 }
 
 int main(int argc, char *argv[]) {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
                 }
                 //receive client message
                 char buffer[256];
-                recv(client_socket, buffer, sizeof(buffer), 0);
+                read(client_socket, buffer, sizeof(buffer));
                 /*
                 * Example of requests:
                 * 0,Reti di calcolatori,2024/03/01 --> add new exam
@@ -146,9 +146,9 @@ int main(int argc, char *argv[]) {
                 } else {
                     printf("Invalid operation\n");
                 }
-                recv(server_socket_uni, response, sizeof(response), 0);
+                read(server_socket_uni, response, sizeof(response));
                 printf("Response from server: %s\n", response);
-                send(client_socket, response, strlen(response), 0);
+                write(client_socket, response, strlen(response));
                 exit(0);
              
         } else {
