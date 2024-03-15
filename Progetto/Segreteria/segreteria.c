@@ -46,33 +46,22 @@ void get_exam_dates_request(int server_socket_uni, char *exam) {
     sprintf(request, "2,%s", exam);
     // write(server_socket_uni, request, strlen(request));
     printf("Sending get_exam_dates_request to server...\n");
-    if (write(server_socket_uni, request, strlen(request)) < 0) {
+    int n = write(server_socket_uni, request, strlen(request));
+    printf("n: %d\n", n);
+    if (n < 0) {
         perror("Error sending request to server");
         exit(EXIT_FAILURE);
     }
+    printf("Request sent to server\n");
 }
 
 int main(int argc, char *argv[]) {
-
-    // Create socket for server connection
-    int server_socket_uni;
-    server_socket_uni = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket_uni < 0) {
-        perror("Error creating server socket");
-        exit(EXIT_FAILURE);
-    }
 
     // Server address
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(SERVER_PORT);
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-     // Connect to server
-    if (connect(server_socket_uni, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
-        perror("Error connecting to server");
-        exit(EXIT_FAILURE);
-    }
 
     // Create socket for secretary
     int secretary_socket;
@@ -115,72 +104,89 @@ int main(int argc, char *argv[]) {
         if (pid < 0) {
             perror("Error creating secretary process");
         } else if (pid == 0) {
-                
-                // Child process - handle student request
-                close(secretary_socket);
-               
-                //receive client message
-                char buffer[256];
-                read(client_socket, buffer, sizeof(buffer));
-                /*
-                * Example of requests:
-                * 0,Reti di calcolatori,2024/03/01 --> add new exam
-                * 1,Reti di calcolatori,0124002583, 2024/03/01 --> book exam
-                * 2,Reti di calcolatori --> get dates by exam
-                */
-                char *token = strtok(buffer, ",");
-                int operation = atoi(token);
-                if (operation == 0) {
-                    //add new exam
-                    char *exam = strtok(NULL, ",");
-                    char *date = strtok(NULL, ",");
 
-                    //check request format
-                    if (exam == NULL || date == NULL) {
-                        write(client_socket, "Missing argument: Usage: 0,<exam_name>,<exam_date>\n", sizeof("Missing argument: Usage: 0,<exam_name>,<exam_date>\n"));
-                        exit(0);
-                    }
+             // Create socket for server connection
+            int server_socket_uni;
+            server_socket_uni = socket(AF_INET, SOCK_STREAM, 0);
+            if (server_socket_uni < 0) {
+                perror("Error creating server socket");
+                exit(EXIT_FAILURE);
+            }
 
-                    add_exam_request(server_socket_uni, exam, date);
+            // Connect to server
+            if (connect(server_socket_uni, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+                perror("Error connecting to server");
+                exit(EXIT_FAILURE);
+            }
+
+            // Child process - handle student request
+            close(secretary_socket);
+            
+            //receive client message
+            char buffer[256];
+            read(client_socket, buffer, sizeof(buffer));
+
+            /*
+            * Example of requests:
+            * 0,Reti di calcolatori,2024/03/01 --> add new exam
+            * 1,Reti di calcolatori,0124002583, 2024/03/01 --> book exam
+            * 2,Reti di calcolatori --> get dates by exam
+            */
+            char *token = strtok(buffer, ",");
+            int operation = atoi(token);
+            if (operation == 0) {
+                //add new exam
+                char *exam = strtok(NULL, ",");
+                char *date = strtok(NULL, ",");
+
+                //check request format
+                if (exam == NULL || date == NULL) {
+                    write(client_socket, "Missing argument: Usage: 0,<exam_name>,<exam_date>\n", sizeof("Missing argument: Usage: 0,<exam_name>,<exam_date>\n"));
+                    exit(0);
                 }
-                else if (operation == 1) {
-                    //book exam
-                    char *exam = strtok(NULL, ",");
-                    char *student_id = strtok(NULL, ",");
-                    char *date = strtok(NULL, ",");
 
-                    //check request format
-                    if (exam == NULL || student_id == NULL || date == NULL) {
-                        write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
-                        exit(0);
-                    }
+                add_exam_request(server_socket_uni, exam, date);
+            } else if (operation == 1) {
+
+                //book exam
+                char *exam = strtok(NULL, ",");
+                char *student_id = strtok(NULL, ",");
+                char *date = strtok(NULL, ",");
+
+                //check request format
+                if (exam == NULL || student_id == NULL || date == NULL) {
+                    write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
+                    exit(0);
+                }
                     
-                    book_exam_request(server_socket_uni, exam, student_id, date);
-                } 
-                else if (operation == 2) {
-                    //get dates by exam
-                    char *exam = strtok(NULL, ",");
+                book_exam_request(server_socket_uni, exam, student_id, date);
+            } else if (operation == 2) {
 
-                    //check request format
-                    if (exam == NULL) {
-                        write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
-                        exit(0);
-                    }
+                //get dates by exam
+                char *exam = strtok(NULL, ",");
 
-                    get_exam_dates_request(server_socket_uni, exam);
-                } else {
-                    //invalid operation
-                    write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
+                //check request format
+                if (exam == NULL) {
+                    write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
+                    exit(0);
                 }
-                printf("Waiting for response from server...\n");
-                if (read(server_socket_uni, response, sizeof(response)) < 0) {
-                    perror("Error receiving response from server");
-                    exit(EXIT_FAILURE);
-                }
-                printf("Received response from server: %s\n", response);
-                write(client_socket, response, strlen(response));
-                //close(server_socket_uni);
-                exit(0);
+
+                get_exam_dates_request(server_socket_uni, exam);    
+            } else {
+                //invalid operation
+                write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
+            }
+
+            printf("Waiting for response from server...\n");
+            if (read(server_socket_uni, response, sizeof(response)) < 0) {
+                perror("Error receiving response from server");
+                exit(EXIT_FAILURE);
+            }
+            printf("Received response from server: %s\n", response);
+            write(client_socket, response, strlen(response));
+
+            close(server_socket_uni);
+            exit(0);
              
         } else {
             // Close student socket

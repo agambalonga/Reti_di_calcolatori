@@ -71,6 +71,7 @@ int main(int argc, char *argv[]) {
             //receive client message
             char buffer[256];
             read(client_socket, buffer, sizeof(buffer));
+            printf("Received message: %s\n", buffer);
 
             /*
              * Example of requests:
@@ -153,6 +154,7 @@ int main(int argc, char *argv[]) {
                 write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
             }
             
+            close(client_socket);
             exit(0);
         } else {
             //parent process
