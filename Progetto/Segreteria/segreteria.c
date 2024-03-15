@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -17,7 +18,12 @@ void add_exam_request(int server_socket_uni, char *exam, char *date) {
     date[strcspn(date, "\n")] = '\0';
     char request[256];
     sprintf(request, "0,%s,%s", exam, date);
-    write(server_socket_uni, request, strlen(request));
+    // write(server_socket_uni, request, strlen(request));
+    printf("Sending add_exam_request to server...\n");
+    if (write(server_socket_uni, request, strlen(request)) < 0) {
+        perror("Error sending request to server");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void book_exam_request(int server_socket_uni, char *exam, char *student_id, char *date) {
@@ -26,14 +32,24 @@ void book_exam_request(int server_socket_uni, char *exam, char *student_id, char
     student_id[strcspn(student_id, "\n")] = '\0';
     char request[256];
     sprintf(request, "1,%s,%s,%s", exam, student_id, date);
-    write(server_socket_uni, request, strlen(request));
+    // write(server_socket_uni, request, strlen(request));
+    printf("Sending book_exam_request to server...\n");
+    if (write(server_socket_uni, request, strlen(request)) < 0) {
+        perror("Error sending request to server");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void get_exam_dates_request(int server_socket_uni, char *exam) {
     exam[strcspn(exam, "\n")] = '\0';
     char request[256];
     sprintf(request, "2,%s", exam);
-    write(server_socket_uni, request, strlen(request));
+    // write(server_socket_uni, request, strlen(request));
+    printf("Sending get_exam_dates_request to server...\n");
+    if (write(server_socket_uni, request, strlen(request)) < 0) {
+        perror("Error sending request to server");
+        exit(EXIT_FAILURE);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -52,6 +68,11 @@ int main(int argc, char *argv[]) {
     server_address.sin_port = htons(SERVER_PORT);
     server_address.sin_addr.s_addr = inet_addr("127.0.0.1");
 
+     // Connect to server
+    if (connect(server_socket_uni, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+        perror("Error connecting to server");
+        exit(EXIT_FAILURE);
+    }
 
     // Create socket for secretary
     int secretary_socket;
@@ -88,7 +109,6 @@ int main(int argc, char *argv[]) {
         client_socket = accept(secretary_socket, NULL, NULL);
         if (client_socket < 0) {
             perror("Error accepting student connection");
-            //continue;
         }
         
         pid_t pid = fork();
@@ -98,12 +118,7 @@ int main(int argc, char *argv[]) {
                 
                 // Child process - handle student request
                 close(secretary_socket);
-
-                // Connect to server
-                if (connect(server_socket_uni, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
-                    perror("Error connecting to server");
-                    exit(EXIT_FAILURE);
-                }
+               
                 //receive client message
                 char buffer[256];
                 read(client_socket, buffer, sizeof(buffer));
@@ -115,40 +130,56 @@ int main(int argc, char *argv[]) {
                 */
                 char *token = strtok(buffer, ",");
                 int operation = atoi(token);
-                printf("Operation: %d \n", operation);
                 if (operation == 0) {
-                    printf("sto in operazione 0\n");
+                    //add new exam
                     char *exam = strtok(NULL, ",");
                     char *date = strtok(NULL, ",");
+
+                    //check request format
                     if (exam == NULL || date == NULL) {
-                        printf("Usage: %d <exam_name> <exam_date>\n", operation);
-                        return 1;
+                        write(client_socket, "Missing argument: Usage: 0,<exam_name>,<exam_date>\n", sizeof("Missing argument: Usage: 0,<exam_name>,<exam_date>\n"));
+                        exit(0);
                     }
+
                     add_exam_request(server_socket_uni, exam, date);
                 }
                 else if (operation == 1) {
+                    //book exam
                     char *exam = strtok(NULL, ",");
                     char *student_id = strtok(NULL, ",");
                     char *date = strtok(NULL, ",");
-                    if (exam == NULL || date == NULL || student_id == NULL) {
-                        printf("Usage: %d <exam_name> <exam_date>\n", operation);
-                        return 1;
+
+                    //check request format
+                    if (exam == NULL || student_id == NULL || date == NULL) {
+                        write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
+                        exit(0);
                     }
+                    
                     book_exam_request(server_socket_uni, exam, student_id, date);
                 } 
                 else if (operation == 2) {
+                    //get dates by exam
                     char *exam = strtok(NULL, ",");
+
+                    //check request format
                     if (exam == NULL) {
-                        printf("Usage: %d <exam_name>\n", operation);
-                        return 1;
+                        write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
+                        exit(0);
                     }
+
                     get_exam_dates_request(server_socket_uni, exam);
                 } else {
-                    printf("Invalid operation\n");
+                    //invalid operation
+                    write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
                 }
-                read(server_socket_uni, response, sizeof(response));
-                printf("Response from server: %s\n", response);
+                printf("Waiting for response from server...\n");
+                if (read(server_socket_uni, response, sizeof(response)) < 0) {
+                    perror("Error receiving response from server");
+                    exit(EXIT_FAILURE);
+                }
+                printf("Received response from server: %s\n", response);
                 write(client_socket, response, strlen(response));
+                //close(server_socket_uni);
                 exit(0);
              
         } else {
@@ -156,5 +187,6 @@ int main(int argc, char *argv[]) {
             close(client_socket);
         }
     }
+    
     return 0;
 }
