@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <stdbool.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -18,7 +18,6 @@ void add_exam_request(int server_socket_uni, char *exam, char *date) {
     date[strcspn(date, "\n")] = '\0';
     char request[256];
     sprintf(request, "0,%s,%s", exam, date);
-    // write(server_socket_uni, request, strlen(request));
     printf("Sending add_exam_request to server...\n");
     if (write(server_socket_uni, request, strlen(request)) < 0) {
         perror("Error sending request to server");
@@ -32,7 +31,6 @@ void book_exam_request(int server_socket_uni, char *exam, char *student_id, char
     student_id[strcspn(student_id, "\n")] = '\0';
     char request[256];
     sprintf(request, "1,%s,%s,%s", exam, student_id, date);
-    // write(server_socket_uni, request, strlen(request));
     printf("Sending book_exam_request to server...\n");
     if (write(server_socket_uni, request, strlen(request)) < 0) {
         perror("Error sending request to server");
@@ -44,7 +42,6 @@ void get_exam_dates_request(int server_socket_uni, char *exam) {
     exam[strcspn(exam, "\n")] = '\0';
     char request[256];
     sprintf(request, "2,%s", exam);
-    // write(server_socket_uni, request, strlen(request));
     printf("Sending get_exam_dates_request to server...\n");
     int n = write(server_socket_uni, request, strlen(request));
     printf("n: %d\n", n);
@@ -122,9 +119,37 @@ int main(int argc, char *argv[]) {
             // Child process - handle student request
             close(secretary_socket);
             
+            // Generate a random wait time between 1 and 10 seconds
+            srand(time(NULL));
+
             //receive client message
             char buffer[256];
-            read(client_socket, buffer, sizeof(buffer));
+            int attempts = 0;
+            int max_attempts = 3;
+            int wait_time;
+
+            //Simulazione di un messaggio che potrebbe non arrivare
+            TODO:Sostituire i printf con i write per il client
+            for (int attempts = 0; attempts < max_attempts; attempts++) {
+                printf("Waiting for client message...\n");
+                ssize_t n = read(client_socket, buffer, sizeof(buffer));
+                bool simulate_failure = attempts <= 2; // Simulate failure for the first 3 attempts
+                if (simulate_failure) {
+                    n = -1;
+                }
+                printf("read() returned %ld\n", n);
+                if (n > 0) {
+                    break;
+                } else {
+                    printf("read() failed, incrementing attempts\n");
+                    printf("attempts is now %d\n", attempts + 1);
+                    if (attempts + 1 == max_attempts) {
+                        printf("Too many failed attempts, waiting before retrying\n");
+                        wait_time = rand() % 60 + 1;
+                        sleep(wait_time);
+                    }
+                }
+            }
 
             /*
             * Example of requests:
