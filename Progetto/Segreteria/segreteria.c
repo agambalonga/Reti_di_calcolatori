@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
 
             //receive client message
             char buffer[256];
+            read(client_socket, buffer, sizeof(buffer));
 
             /*
             * Example of requests:
