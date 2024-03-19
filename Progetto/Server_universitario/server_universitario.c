@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <arpa/inet.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -23,8 +24,12 @@ int get_exam_dates(char*, char*);
 int main(int argc, char *argv[]) {
 
     //create server socket
-    int server_socket;
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    int server_socket, client_socket = -1;
+
+    if((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        perror("Error creating server socket");
+        exit(-1);
+    }
 
     //handle error creating server socket
     if(!server_socket) {
@@ -42,6 +47,16 @@ int main(int argc, char *argv[]) {
         exit(-2);
     }
 
+     /**
+     * Ci serviamo di un "insieme" di descrittori per strutturare la successiva select.
+     * In particolare abbiamo read_set che mantiene l'insieme dei descrittori in lettura.
+     * La variabile max_fd serve a specificare quante posizioni dell'array di descrittori devono essere controllate
+     * all'interno della funzione select.
+     */
+    fd_set read_set;
+    int max_fd;
+    max_fd = server_socket;
+
     //listen for connections
     //first parameter is the socket, second is the maximum number of pending connections
     if(listen(server_socket, 5) < 0) {
@@ -52,116 +67,143 @@ int main(int argc, char *argv[]) {
     printf("Server listening on port %d\n", SERVER_PORT);
 
     while(1) {
-        /* accept new client connection. 
-         * It returns a new socket file descriptor that is used to communicate with the client and 
-         * the old one is used to listen for new connections
-        */
-        int client_socket = accept(server_socket, NULL, NULL);
-        if(client_socket < 0) {
-            perror("Error accepting connection");
+
+         /**
+         * Ad ogni iterazione reinizializzo a 0 il read_set e vi aggiungo la socket che permette l'ascolto di nuove
+         * connessioni da parte della segreteria.
+         */
+        FD_ZERO(&read_set);
+        FD_SET(server_socket, &read_set);
+
+        /**
+         * Se il descrittore della socket relativa alla connessione con la segreteria è maggiore di -1 significa che la
+         * segreteria è connessa e quindi si aggiunge anche il suo descrittore al read_set.
+         */
+        if (client_socket > -1) {
+            FD_SET(client_socket, &read_set);
         }
 
-        pid_t pid = fork();
-        if(pid < 0) {
-            perror("Error creating child process");
-        } else if (pid == 0) {
-            //child process
-            close(server_socket);
-
-            //receive client message
-            char buffer[256];
-            read(client_socket, buffer, sizeof(buffer));
-            printf("Received message: %s\n", buffer);
-
-            /*
-             * Example of requests:
-             * 0,Reti di calcolatori,2024/03/01 --> add new exam
-             * 1,Reti di calcolatori,0124002583,2024/03/01 --> book exam
-             * 2,Reti di calcolatori --> get dates by exam
-            */
-            char *token = strtok(buffer, ",");
-            int operation = atoi(token);
-
-            if(operation == 0) {
-                //add new exam
-                char *exam = strtok(NULL, ",");
-                char *date = strtok(NULL, ",");
-
-                //check request format
-                if (exam == NULL || date == NULL) {
-                    write(client_socket, "Missing argument: Usage: 0,<exam_name>,<exam_date>\n", sizeof("Missing argument: Usage: 0,<exam_name>,<exam_date>\n"));
-                    exit(0);
-                }
-                int result = add_exam(exam, date);
-
-                if(result < 0) {
-                    //error adding exam (file error or exam already present)
-                    write(client_socket, "Error adding exam\n", sizeof("Error adding exam\n"));
-                } else {
-                    write(client_socket, "Exam added\n", sizeof("Exam added\n"));
-                }
-
-            } else if (operation == 1) {
-                //book exam
-                char* exam = strtok(NULL, ",");
-                char* student_id = strtok(NULL, ",");
-                char* date = strtok(NULL, ",");
-
-                //check request format
-                if (exam == NULL || student_id == NULL || date == NULL) {
-                    write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
-                    exit(0);
-                }
-
-                int result = book_exam(exam, student_id, date);
-
-                if(result < 0) {
-                    //error booking exam
-                    write(client_socket, "Error booking exam\n", sizeof("Error booking exam\n"));
-                } else {
-                    write(client_socket, "Exam booked\n", sizeof("Exam booked\n"));
-                }
-
-            } else if (operation == 2) {
-                //get dates by exam
-                char *exam = strtok(NULL, ",");
-
-                //check request format
-                if (exam == NULL) {
-                    write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
-                    exit(0);
-                }
-                
-                char buffer [256];
-
-                int result = get_exam_dates(exam, buffer);
-                if(result < 0) {
-                    //error getting exam dates
-                    write(client_socket, "Error getting exam dates\n", sizeof("Error getting exam dates\n"));
-                } else
+        /**
+         * La funzione select restituisce il numero di descrittori pronti.
+         */
+        if (select(max_fd + 1, &read_set, NULL, NULL, NULL) < 0) {
+            perror("Errore nell'operazione di select!");
+        }
         
-                if(buffer[0] == '\0') {
-                    char msg [256];
-                    sprintf(msg, "No dates found for exam %s\n", exam);
-                    printf("%s\n", msg);
-                    write(client_socket, msg, sizeof(msg));
-                } else {
-                    buffer[strlen(buffer)] = '\n';
-                    write(client_socket, buffer, strlen(buffer));
-                }
-            } else {
-                //invalid operation
-                write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
+        /**
+         * Si controlla se sono in attesa di essere accettate nuove connessioni.
+         */
+        if (FD_ISSET(server_socket, &read_set)) {
+            /**
+             * La system call accept permette di accettare una nuova connessione (lato server) in entrata da un client.
+             */
+            if ((client_socket = accept(server_socket, (struct sockaddr *)NULL, NULL)) < 0) {
+                perror("Errore nell'operazione di accept!");
             }
-            
-            close(client_socket);
-            exit(0);
-        } else {
-            //parent process
-            close(client_socket);
+
+            /**
+             * Si ricalcola il numero di posizioni da controllare nella select
+             */
+            if (client_socket > max_fd) {
+                max_fd = client_socket;
+            }
+        }
+
+
+        /**
+         * Si controlla se la segreteria vuole inviare una nuova richiesta al server universitario.
+         */
+        if (FD_ISSET(client_socket, &read_set)) {
+            /**
+             * In caso affermativo si effettua la read, sempre se è possibile effettuarla, ossia se non viene
+             * chiusa la segreteria.
+             */
+            char buffer[256];
+
+            if (read(client_socket, buffer, sizeof(buffer)) > 0) {
+
+                    /*
+                * Example of requests:
+                * 0,Reti di calcolatori,2024/03/01 --> add new exam
+                * 1,Reti di calcolatori,0124002583,2024/03/01 --> book exam
+                * 2,Reti di calcolatori --> get dates by exam
+                */
+                char *token = strtok(buffer, ",");
+                int operation = atoi(token);
+
+                if(operation == 0) {
+                    //add new exam
+                    char *exam = strtok(NULL, ",");
+                    char *date = strtok(NULL, ",");
+
+                    //check request format
+                    if (exam == NULL || date == NULL) {
+                        printf("Missing argument: Usage: 0,<exam_name>,<exam_date>\n");
+                        write(client_socket, "Missing argument: Usage: 0,<exam_name>,<exam_date>\n", sizeof("Missing argument: Usage: 0,<exam_name>,<exam_date>\n"));
+                    } else {
+                        int result = add_exam(exam, date);
+
+                        if(result < 0) {
+                            //error adding exam (file error or exam already present)
+                            write(client_socket, "Error adding exam\n", sizeof("Error adding exam\n"));
+                        } else {
+                            write(client_socket, "Exam added\n", sizeof("Exam added\n"));
+                        }
+                    }
+                    
+
+                } else if (operation == 1) {
+                    //book exam
+                    char* exam = strtok(NULL, ",");
+                    char* student_id = strtok(NULL, ",");
+                    char* date = strtok(NULL, ",");
+
+                    //check request format
+                    if (exam == NULL || student_id == NULL || date == NULL) {
+                        write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
+                    } else {
+                        int result = book_exam(exam, student_id, date);
+
+                        if(result < 0) {
+                            //error booking exam
+                            write(client_socket, "Error booking exam\n", sizeof("Error booking exam\n"));
+                        } else {
+                            write(client_socket, "Exam booked\n", sizeof("Exam booked\n"));
+                        }
+                    }
+                } else if (operation == 2) {
+                    //get dates by exam
+                    char *exam = strtok(NULL, ",");
+
+                    //check request format
+                    if (exam == NULL) {
+                        write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
+                    } else {
+                        char buffer [256];
+                        int result = get_exam_dates(exam, buffer);
+                        if(result < 0) {
+                            //error getting exam dates
+                            write(client_socket, "Error getting exam dates\n", sizeof("Error getting exam dates\n"));
+                        } else
+                
+                        if(buffer[0] == '\0') {
+                            char msg [256];
+                            sprintf(msg, "No dates found for exam %s\n", exam);
+                            printf("%s\n", msg);
+                            write(client_socket, msg, sizeof(msg));
+                        } else {
+                            buffer[strlen(buffer)] = '\n';
+                            write(client_socket, buffer, strlen(buffer));
+                        }
+                    }
+                    
+                } else {
+                    //invalid operation
+                    write(client_socket, "Invalid operation\n", sizeof("Invalid operation\n"));
+                }
+            }
         }
     }
-
     return 0;
 }
 

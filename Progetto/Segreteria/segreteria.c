@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
             int wait_time;
 
             //Simulazione di un messaggio che potrebbe non arrivare
-            TODO:Sostituire i printf con i write per il client
+            //TODO:Sostituire i printf con i write per il client
             for (int attempts = 0; attempts < max_attempts; attempts++) {
                 printf("Waiting for client message...\n");
                 ssize_t n = read(client_socket, buffer, sizeof(buffer));
