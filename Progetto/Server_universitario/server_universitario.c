@@ -109,7 +109,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-
         /**
          * Si controlla se la segreteria vuole inviare una nuova richiesta al server universitario.
          */
@@ -121,6 +120,7 @@ int main(int argc, char *argv[]) {
             char buffer[256];
 
             if (read(client_socket, buffer, sizeof(buffer)) > 0) {
+                printf("Received request: %s\n", buffer);
 
                     /*
                 * Example of requests:
@@ -168,6 +168,7 @@ int main(int argc, char *argv[]) {
                             //error booking exam
                             write(client_socket, "Error booking exam\n", sizeof("Error booking exam\n"));
                         } else {
+                            printf("Exam booked\n");
                             write(client_socket, "Exam booked\n", sizeof("Exam booked\n"));
                         }
                     }
