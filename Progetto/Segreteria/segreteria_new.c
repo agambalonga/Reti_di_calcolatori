@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
                 memset(response, 0, sizeof(response));  // Azzeramento di response
 
                 if (read(clientfd[j], buffer, sizeof(buffer)) > 0) {
-                    printf("Richiesta ricevuta dal client studente: %s\n", buffer);
+                    printf("Request received from student client: %s\n", buffer);
                     strcpy(buffer_copy, buffer);
                     
                     char *token = strtok(buffer_copy, ",");
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                         write(clientfd[i], "Invalid operation\n", sizeof("Invalid operation\n"));
                     }
                 } else {
-                    perror("Errore nella lettura della richiesta!");
+                    perror("Error in reading the request!");
                 }
             }
         }

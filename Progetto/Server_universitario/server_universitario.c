@@ -13,8 +13,10 @@
 
 void build_server_address(struct sockaddr_in *, int);
 int add_exam(char*, char*);
+int get_last_progressive(char *, char *);
 int book_exam(char*, char*, char*);
 int get_exam_dates(char*, char*);
+int check_exam_date(char *, char *);
 
 /*
     1)Riceve l'aggiunta di nuovi esami
@@ -163,13 +165,15 @@ int main(int argc, char *argv[]) {
                         write(client_socket, "Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n", sizeof("Missing argument: Usage: 1,<exam_name>,<student_id>,<exam_date>\n"));
                     } else {
                         int result = book_exam(exam, student_id, date);
-
+                        
                         if(result < 0) {
                             //error booking exam
                             write(client_socket, "Error booking exam\n", sizeof("Error booking exam\n"));
                         } else {
                             printf("Exam booked\n");
-                            write(client_socket, "Exam booked\n", sizeof("Exam booked\n"));
+                            char response[256];
+                            sprintf(response, "Exam booked, your progressive is: %d\n", result);
+                            write(client_socket, response, strlen(response));
                         }
                     }
                 } else if (operation == 2) {
@@ -259,10 +263,71 @@ int add_exam(char *exam, char *date) {
     return 0;
 }
 
+int get_last_progressive(char *exam, char *date){
+    FILE *file = fopen("bookings.txt", "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return -1;
+    }
+    printf("Exam: %s - Date: %s\n", exam, date);
+    int last_progressive = 0;
+    char read_exam[256], read_date[256];
+    int progressive = 0;
+    while (!feof(file)) {
+        /*
+        * La stringa di formato "%[^,],%*[^,],%[^,],%d\n" dice a fscanf() di fare quanto segue:
+        * - "%[^,]" legge una stringa fino alla prossima virgola. Questa stringa viene memorizzata nella variabile read_exam.
+        * - "%*[^,]" legge e ignora una stringa fino alla prossima virgola.
+        * - "%[^,]" legge un'altra stringa fino alla prossima virgola. Questa stringa viene memorizzata nella variabile read_date.
+        * - "%d" legge un numero intero. Questo intero viene memorizzato nella variabile progressive.
+        * 
+        */
+        if (fscanf(file, "%[^,],%*[^,],%[^,],%d\n", read_exam, read_date, &progressive) != 3) {
+            // Error or end of file
+            break;
+        }
+        // If the read exam and date do not match the input exam and date, reset progressive to -1
+        if (strcmp(read_exam, exam) == 0 && strcmp(read_date, date) == 0) {
+            last_progressive = progressive;
+        }
+    }
+
+    fclose(file);
+    return last_progressive;
+}
+
+int check_exam_date(char *exam, char *date) {
+    //open file in read mode
+    FILE *file = fopen("exams.txt", "r");
+    if(file == NULL) {
+        perror("Error opening file");
+        return -1;
+    }
+
+    //check if exam is already present
+    char line[256];
+    while(fgets(line, sizeof(line), file)) {
+        line[strcspn(line, "\n")] = '\0'; //remove newline character
+        // check if exam is already present. A line is in the format: exam,date
+        char *exam_name = strtok(line, ",");
+        if(strcmp(exam_name, exam) == 0 && strcmp(strtok(NULL, ","), date) == 0) {
+            fclose(file);
+            return 0;
+        }
+    }
+
+    fclose(file);
+    return -1;
+}
+
 int book_exam(char *exam, char *student_id, char *date) {
     exam[strcspn(exam, "\n")] = '\0';
     student_id[strcspn(student_id, "\n")] = '\0';
     date[strcspn(date, "\n")] = '\0';
+
+    if (check_exam_date(exam, date) < 0) {
+        return -1;
+    }
 
     //open file in read mode
     FILE *file = fopen("bookings.txt", "r");
@@ -284,7 +349,7 @@ int book_exam(char *exam, char *student_id, char *date) {
     }
 
     fclose(file);
-
+    int progressive = get_last_progressive(exam, date) + 1;
     //open file in append mode
     file = fopen("bookings.txt", "a");
     if(file == NULL) {
@@ -293,9 +358,9 @@ int book_exam(char *exam, char *student_id, char *date) {
     }
 
     //book exam
-    fprintf(file, "%s,%s,%s\n", exam, student_id, date);
+    fprintf(file, "%s,%s,%s,%d\n", exam, student_id, date, progressive);
     fclose(file);
-    return 0;
+    return progressive;
 }
 
 int get_exam_dates(char* exam, char* dates) {
