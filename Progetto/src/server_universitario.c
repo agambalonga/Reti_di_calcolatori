@@ -185,6 +185,7 @@ int main(int argc, char *argv[]) {
                         write(client_socket, "Missing argument: Usage: 2,<exam_name>\n", sizeof("Missing argument: Usage: 2,<exam_name>\n"));
                     } else {
                         char buffer [256];
+                        memset(buffer, 0, sizeof(buffer));  // Initialize buffer to zero
                         int result = get_exam_dates(exam, buffer);
                         if(result < 0) {
                             //error getting exam dates
@@ -230,7 +231,7 @@ int add_exam(char *exam, char *date) {
     date[strcspn(date, "\n")] = '\0';
 
     //open file in read mode
-    FILE *file = fopen("exams.txt", "r");
+    FILE *file = fopen("../resources/exams.txt", "r");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -251,7 +252,7 @@ int add_exam(char *exam, char *date) {
     fclose(file);
 
     //open file in append mode
-    file = fopen("exams.txt", "a");
+    file = fopen("../resources/exams.txt", "a");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -264,7 +265,7 @@ int add_exam(char *exam, char *date) {
 }
 
 int get_last_progressive(char *exam, char *date){
-    FILE *file = fopen("bookings.txt", "r");
+    FILE *file = fopen("../resources/bookings.txt", "r");
     if (file == NULL) {
         perror("Error opening file");
         return -1;
@@ -298,7 +299,7 @@ int get_last_progressive(char *exam, char *date){
 
 int check_exam_date(char *exam, char *date) {
     //open file in read mode
-    FILE *file = fopen("exams.txt", "r");
+    FILE *file = fopen("../resources/exams.txt", "r");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -330,7 +331,7 @@ int book_exam(char *exam, char *student_id, char *date) {
     }
 
     //open file in read mode
-    FILE *file = fopen("bookings.txt", "r");
+    FILE *file = fopen("../resources/bookings.txt", "r");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -351,7 +352,7 @@ int book_exam(char *exam, char *student_id, char *date) {
     fclose(file);
     int progressive = get_last_progressive(exam, date) + 1;
     //open file in append mode
-    file = fopen("bookings.txt", "a");
+    file = fopen("../resources/bookings.txt", "a");
     if(file == NULL) {
         perror("Error opening file");
         return -1;
@@ -371,7 +372,7 @@ int get_exam_dates(char* exam, char* dates) {
     }
 
     //open file in read mode
-    FILE *file = fopen("exams.txt", "r");
+    FILE *file = fopen("../resources/exams.txt", "r");
     if(file == NULL) {
         perror("Error opening file");
         return -1;

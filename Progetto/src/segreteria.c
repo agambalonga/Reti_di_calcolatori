@@ -29,18 +29,18 @@ int main(int argc, char* argv[]) {
      * Controllo che venga inserito da riga di comando l'indirizzo IP relativo al server al quale ci si vuole connettere.
      */
     if (argc != 2) {
-        fprintf(stderr, "Utilizzo: %s <indirizzoIP>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <IP Address>\n", argv[0]);
         exit(1);
     }
 
     if((sockfd = connect_client(argv[1])) < 0) {
-        perror("Errore nella connessione al server");
+        perror("Error connecting to server");
         return -1;
     }
 
     // SEGRETERIA SERVER
     if((listenfd = init_server()) < 0) {
-        perror("Errore nell'inizializzazione del server");
+        perror("Error initializing server!");
         return -2;
     }
 
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
              * passati.
              */
             if (select(max_fd + 1, &read_set, &write_set, NULL, NULL) < 0) {
-                perror("Errore nell'operazione di select!");
+                perror("Error in select function!");
             }
 
             /**
@@ -88,9 +88,9 @@ int main(int argc, char* argv[]) {
                  * La system call accept permette di accettare una nuova connessione (lato server) in entrata da un client.
                  */
                 if ((clientfd[i] = accept(listenfd, (struct sockaddr *)NULL, NULL)) < 0) {
-                    perror("Errore nell'operazione di accept!");
+                    perror("Error accepting connection!");
                 } else {
-                    printf("Connessione accettata\n");
+                    printf("New connection accepted\n");
 
                     /**
                      * Si aggiunge il descrittore legato alla nuova connessione da uno studente all'interno dell'array di
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
                 memset(response, 0, sizeof(response));  // Azzeramento di response
 
                 if (read(clientfd[j], buffer, sizeof(buffer)) > 0) {
-                    printf("Request received from student client: %s\n", buffer);
+                    printf("Request received from student_client: %s\n", buffer);
                     strcpy(buffer_copy, buffer);
                     
                     char *token = strtok(buffer_copy, ",");
@@ -173,10 +173,10 @@ int main(int argc, char* argv[]) {
              * vuole procedere all'inserimento di un nuovo appello, prima di soddisfare le richieste degli studenti
              * in attesa.
              */
-            printf("Vuoi gestire le richieste degli studenti o inserire un nuovo appello?\n");
-            printf("1 - Gestire le richieste degli studenti\n");
-            printf("2 - Inserire un nuovo appello\n");
-            printf("Scelta: ");
+            printf("Do you want to manage student requests or book a new appeal?\n");
+            printf("1 - Manage student request\n");
+            printf("2 - Book an appeal\n");
+            printf("Choice: ");
 
             scanf("%d", &input);
             printf("\n");
@@ -192,9 +192,9 @@ int main(int argc, char* argv[]) {
              * universitario.
              */
             if (input == 2) {
-                printf("Inserisci il nome dell'esame: ");
+                printf("Exam name: ");
                 fgets(name, sizeof(name), stdin);
-                printf("Inserisci la data dell'esame: ");
+                printf("Date (YYYY/MM/DD): ");
                 fgets(date, sizeof(date), stdin);
 
                 char request[256];
@@ -204,13 +204,13 @@ int main(int argc, char* argv[]) {
                 sprintf(request, "0,%s,%s", name, date);
 
                 if(write(sockfd, request, strlen(request)) < 0) {
-                    perror("Errore nell'invio della richiesta al server!");
+                    perror("Error sending request to server");
                 } else {
                     char response[256];
                     if (read(sockfd, response, sizeof(response)) < 0) {
-                        perror("Errore nella ricezione della risposta dal server!");
+                        perror("Error reading response from server");
                     } else {
-                        printf("Risposta ricevuta:  %s\n", response);
+                        printf("Received response:  %s\n", response);
                     }
                 }
             }
@@ -235,7 +235,7 @@ int connect_client( char* ip_addr) {
      * parametro, se messo a 0, specifica che si tratta del protocollo standard.
      */
     if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
-        perror("Errore nella creazione della socket!");
+        perror("Error creating socket!");
         exit(1);
     }
 
@@ -248,7 +248,7 @@ int connect_client( char* ip_addr) {
      */
     servaddr.sin_family = AF_INET;
     if (inet_pton(AF_INET, ip_addr, &servaddr.sin_addr) <= 0) {
-        fprintf(stderr, "Errore inet_pton per %s\n", ip_addr);
+        fprintf(stderr, "Error inet_pton for : %s\n", ip_addr);
        return -1;
     }
     servaddr.sin_port = htons(SERVER_PORT);
@@ -258,7 +258,7 @@ int connect_client( char* ip_addr) {
      * l'indirizzo IP e la porta memorizzate nella struttura.
      */
     if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("Errore nell'operazione di connect!");
+        perror("Error connecting to server");
         return -2;
     }
 
@@ -282,7 +282,7 @@ int init_server() {
      * parametro, se messo a 0, specifica che si tratta del protocollo standard.
      */
     if ((listenfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
-        perror("Errore nella creazione della socket!");
+        perror("Error creating socket!");
         return -1;
     }
 
@@ -300,7 +300,7 @@ int init_server() {
      * a sua volta un campo della struct sockaddr_in (secaddr nel nostro caso), al descrittore listenfd.
      */
     if ((bind(listenfd, (struct sockaddr *)&secaddr, sizeof (secaddr))) < 0) {
-        perror("Errore nell'operazione di bind!");
+        perror("Error binding the socket!");
         return -2;
     }
 
@@ -309,11 +309,11 @@ int init_server() {
      * tramite il secondo argomento della chiamata.
      */
     if ((listen(listenfd, 5)) < 0) {
-        perror("Errore nell'operazione di listen!");
+        perror("Error listening for connections!");
         return -3;
     }
 
-    printf("Server in ascolto sulla porta %d\n", SECRETARY_PORT);
+    printf("Server listening on port: %d\n", SECRETARY_PORT);
 
     return listenfd;
 }

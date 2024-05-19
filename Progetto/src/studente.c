@@ -109,16 +109,16 @@ int main(int argc, char *argv[]) {
 
     while(choice != 3){
 
-        printf("Which operation do you want do?\n1)View available exams\n2)Book exam\n3)Exit\n");
+        memset(buffer, 0, sizeof(buffer));
+        memset(response, 0, sizeof(response));
+
+        printf("Which operation do you want do?\n1)View available exams\n2)Book exam\n3)Exit\nChoice:");
         scanf("%d", &choice);
 
         if(choice==1){
             printf("Insert the exam you want to view: ");
             scanf("%s", buffer);
-            if (buffer == NULL) {
-                printf("Missing argument: Usage: <exam_name>\n");
-                exit(-1);
-            }
+            
             get_exam_dates_request(segretary_socket, buffer);
         }
         else if(choice==2){
