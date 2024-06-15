@@ -175,7 +175,7 @@ int main(int argc, char* argv[]) {
              */
             printf("Do you want to manage student requests or book a new appeal?\n");
             printf("1 - Manage student request\n");
-            printf("2 - Book an appeal\n");
+            printf("2 - Insert an appeal\n");
             printf("Choice: ");
 
             scanf("%d", &input);
