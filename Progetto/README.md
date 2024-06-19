@@ -29,7 +29,7 @@
     ```
 3. In another terminal, start the student:
     ```
-    ./student
+    ./studente
     ```
 
 ### Secretary
