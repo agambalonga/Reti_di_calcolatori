@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
 
     /**
      * Inizializzo a 0 tutti i bit relativi ai descrittori del master_set, dopodichè aggiungo a questo array
-     * di descrittori sia la socket che permette la connessione al server universitario che quella che permette l'ascolto
+     * di descrittori sia la socket che permette la connessione al server universitario, sia quella che permette l'ascolto
      * delle richieste di connessione provenienti dagli studenti.
      * La variabile max_fd serve a specificare quante posizioni degli array di descrittori devono essere controllate
      * all'interno della funzione select.
@@ -289,7 +289,7 @@ int init_server() {
     /**
      * Specifico la struttura dell'indirizzo del server tramite i campi di una struct di tipo sockaddr_in.
      * Vengono utilizzati indirizzi IPv4, vengono accettate connessioni da qualsiasi indirizzo e la porta su cui
-     * il server risponderà ai client sarà la 1025.
+     * il server risponderà ai client sarà la 9003.
      */
     secaddr.sin_family = AF_INET;
     secaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -305,7 +305,7 @@ int init_server() {
     }
 
     /**
-     * Mettiamo il server in ascolto, specificando quante connessioni possono essere in attesa venire accettate
+     * Mettiamo il server in ascolto, specificando quante connessioni possono essere in attesa di essere accettate
      * tramite il secondo argomento della chiamata.
      */
     if ((listen(listenfd, 5)) < 0) {
