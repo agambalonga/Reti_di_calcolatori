@@ -127,30 +127,18 @@ int main(int argc, char* argv[]) {
                     char *token = strtok(buffer_copy, ",");
                     int operation = atoi(token);
 
-                    if(operation == 1) {
+                    if(operation == 1 || operation == 2) {
+                        //send request to server
                         if(write(sockfd, buffer, sizeof(buffer)) < 0) {
                                 perror("Error sending request to server");
                                 continue;
                             }
 
-                            if (read(sockfd, response, sizeof(response)) < 0) {
-                                perror("Error receiving response from server");
-                            } else {
-                                printf("Received response from server: %s\n", response);
-                                write(clientfd[j], response, strlen(response));
-                            }
-                    } else if(operation == 2) {
-                        //send request to server
-                        if(write(sockfd, buffer, sizeof(buffer)) < 0) {
-                            perror("Error sending request to server");
-                            continue;
+                        if (read(sockfd, response, sizeof(response)) < 0) {
+                            perror("Error receiving response from server");
                         } else {
-                            if (read(sockfd, response, sizeof(response)) < 0) {
-                                perror("Error receiving response from server");
-                            } else {
-                                printf("Received response from server: %s\n", response);
-                                write(clientfd[j], response, strlen(response));
-                            }
+                            printf("Received response from server: %s\n", response);
+                            write(clientfd[j], response, strlen(response));
                         }
                     } else {
                         //invalid operation
