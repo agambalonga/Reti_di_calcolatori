@@ -14,8 +14,6 @@
 
 int createSocket(struct sockaddr_in* , int);
 
-ssize_t writeWithRetry(int, const void *, size_t, int);
-
 int connectWithRetry(int, const struct sockaddr*, int);
 
 void book_exam_request(int, char *, char *, char *date);
@@ -113,29 +111,6 @@ int createSocket(struct sockaddr_in *address, int port) {
     inet_pton(AF_INET, "127.0.0.1", &address->sin_addr);
 
     return sockfd;
-}
-
-ssize_t writeWithRetry(int fd, const void *buf, size_t count, int max_attempts) {
-    int attempt=0;
-    ssize_t result;
-    while(attempt++ < max_attempts) {
-        result = write(fd, buf, count);
-        if (result != -1) {
-            return result; // Write successful
-        }
-        printf("Error writing, retrying...");
-
-        if(attempt == max_attempts) {
-            int delay = rand()%6; // Random delay between 0 and 5 seconds
-            printf("Wait: %d second\n", delay);
-            sleep(delay); // Wait before retrying
-            result = write(fd, buf, count);
-            if (result != -1) {
-                return result; // Write successful
-            }
-        }
-    }
-    return -1; // Write failed after max_attempts
 }
 
 int connectWithRetry(int sockfd, const struct sockaddr *addr, int max_attempts) {
