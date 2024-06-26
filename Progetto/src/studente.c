@@ -12,7 +12,7 @@
 
 #define SECRETARY_PORT 9003
 
-int createSocket(struct sockaddr_in* , int);
+int createSocket(struct sockaddr_in*);
 
 int connectWithRetry(int, const struct sockaddr*, int);
 
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in segretary_address;
 
     // Create socket for student
-    int segretary_socket = createSocket(&segretary_address, SECRETARY_PORT);
+    int segretary_socket = createSocket(&segretary_address);
     if (segretary_socket < 0) {
         perror("Error creating student socket");
         exit(-1);
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
             
             //close socket and try to reconnect
             close(segretary_socket);
-            segretary_socket = createSocket(&segretary_address, SECRETARY_PORT);
+            segretary_socket = createSocket(&segretary_address);
             
             if(connectWithRetry(segretary_socket, (struct sockaddr *) &segretary_address, 3) < 0) {
                 printf("Error reconnetting to segretary server, exiting...");
@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 
 }
 
-int createSocket(struct sockaddr_in *address, int port) {
+int createSocket(struct sockaddr_in *address) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
         perror("Error creating socket");
@@ -107,7 +107,7 @@ int createSocket(struct sockaddr_in *address, int port) {
     }
 
     address->sin_family = AF_INET;
-    address->sin_port = htons(port);
+    address->sin_port = htons(SECRETARY_PORT);
     inet_pton(AF_INET, "127.0.0.1", &address->sin_addr);
 
     return sockfd;
@@ -126,7 +126,7 @@ int connectWithRetry(int sockfd, const struct sockaddr *addr, int max_attempts) 
 
         //once connect failed, the socket must be closed and recreated
         close(sockfd);
-        sockfd = createSocket((struct sockaddr_in *) addr, SECRETARY_PORT);
+        sockfd = createSocket((struct sockaddr_in *) addr);
 
         if(attempt == max_attempts) {
             int delay = rand()%11;// Random delay between 0 and 10 seconds
